@@ -328,8 +328,6 @@ class ResponseVariationPattern(Pattern):
         if not text or not target_traits:
             return 0.7  # Default to moderately matched
 
-        trait_scores = []
-
         # 1. Openness Score (Inventive/curious vs. Conventional)
         openness_patterns = {
             "high": r"\b(explore|discover|creative|imagine|curious|novel|unique|innovative|fascinating|diverse|experiment|learn|understand|wonder)\b",
@@ -338,8 +336,7 @@ class ResponseVariationPattern(Pattern):
         openness_score = self._calculate_trait_score(
             text, openness_patterns, target_traits.get("openness", 0.5)
         )
-        trait_scores.append(openness_score)
-
+        trait_scores = [openness_score]
         # 2. Conscientiousness Score (Efficient/organized vs. Spontaneous/flexible)
         conscientiousness_patterns = {
             "high": r"\b(plan|organize|systematic|thorough|precise|efficient|careful|detailed|responsible|prepared|structured|methodical)\b",
@@ -385,11 +382,7 @@ class ResponseVariationPattern(Pattern):
         # Weight the traits (can be adjusted based on importance)
         # Higher weights for traits that more strongly influence communication style
         weights = [0.25, 0.2, 0.25, 0.2, 0.1]  # Sum = 1.0
-        final_score = sum(
-            score * weight for score, weight in zip(trait_scores, weights)
-        )
-
-        return final_score
+        return sum(score * weight for score, weight in zip(trait_scores, weights))
 
     def _calculate_trait_score(
         self, text: str, patterns: Dict[str, str], target_value: float
@@ -430,11 +423,7 @@ class ResponseVariationPattern(Pattern):
         confidence = min(
             1.0, (high_count + low_count) / 3
         )  # Increased normalization factor
-        match_score = match_score * confidence + 0.8 * (
-            1 - confidence
-        )  # Higher baseline
-
-        return match_score
+        return match_score * confidence + 0.8 * (1 - confidence)
 
     def _get_context_factor(self, context: Dict[str, Any]) -> float:
         """Calculate context-based adjustment factor.

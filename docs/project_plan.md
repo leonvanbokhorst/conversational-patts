@@ -57,12 +57,12 @@ How can we implement and validate key human-like conversational patterns in a 2-
 
 #### Lightweight Fallback Implementation
 
-3. **Response Variation LITE**
+1. **Response Variation LITE**
    - Simple template-based variation
    - Fixed set of alternatives
    - Basic context checks
 
-4. **Repair Strategies LITE**
+2. **Repair Strategies LITE**
    - Pattern-specific error detection
    - Single recovery strategy per error
    - No learning component
@@ -83,7 +83,7 @@ How can we implement and validate key human-like conversational patterns in a 2-
 
 #### Implementation Dependencies
 
-```
+```text
 Turn-taking
     ↓
 Context Awareness
