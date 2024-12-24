@@ -12,9 +12,9 @@ from dataclasses import dataclass
 import hashlib
 from pathlib import Path
 import json
+from sentence_transformers import SentenceTransformer
 
 from topic_drift.data_types import ConversationData
-from topic_drift.llm_wrapper import OllamaWrapper
 
 
 class DataSplit(NamedTuple):
@@ -47,22 +47,41 @@ def split_data(
     Returns:
         DataSplit object containing train/val/test tensors
     """
+    # Convert labels to discrete bins for stratification
+    n_bins = 10  # Number of bins for stratification
+    binned_labels = np.floor(labels.numpy() * n_bins).astype(int)
+    
+    # Count samples in each bin
+    unique_bins, bin_counts = np.unique(binned_labels, return_counts=True)
+    min_samples = np.min(bin_counts)
+    
+    # Determine if stratification is possible
+    use_stratify = min_samples >= 2
+    stratify = binned_labels if use_stratify else None
+    
     # First split off test set
     train_val_emb, test_emb, train_val_labels, test_labels = train_test_split(
         embeddings.numpy(),
         labels.numpy(),
         test_size=test_size,
         random_state=random_state,
-        stratify=labels.numpy(),
+        stratify=stratify,
     )
 
     # Then split remaining data into train and validation
+    if use_stratify:
+        # Recompute bins for the remaining data
+        binned_train_val = np.floor(train_val_labels * n_bins).astype(int)
+        stratify_remaining = binned_train_val
+    else:
+        stratify_remaining = None
+
     train_emb, val_emb, train_labels, val_labels = train_test_split(
         train_val_emb,
         train_val_labels,
         test_size=val_size / (1 - test_size),  # Adjust for remaining data
         random_state=random_state,
-        stratify=train_val_labels,
+        stratify=stratify_remaining,
     )
 
     return DataSplit(
@@ -132,6 +151,7 @@ class TurnWindow:
     embeddings: List[np.ndarray] = None  # Embeddings for each turn
     drift_score: float = None  # Continuous drift score between 0 and 1
     window_similarity: float = None  # Average similarity within window
+    original_texts: List[str] = None  # Original text for each turn
 
 
 def get_cache_path() -> Path:
@@ -161,46 +181,55 @@ def get_cache_key(
     return hashlib.md5(f"{data_str}{param_str}".encode()).hexdigest()
 
 
-async def process_window(
-    window: TurnWindow,
-    ollama: OllamaWrapper,
+async def process_batch(
+    windows: List[TurnWindow],
+    model: SentenceTransformer,
     executor: ThreadPoolExecutor,
-) -> TurnWindow:
-    """Process a window of turns asynchronously.
+) -> List[TurnWindow]:
+    """Process a batch of windows in parallel.
 
     Args:
-        window: TurnWindow object containing turns
-        ollama: OllamaWrapper instance
-        executor: ThreadPoolExecutor for running embeddings in parallel
+        windows: List of TurnWindow objects
+        model: SentenceTransformer model
+        executor: ThreadPoolExecutor for parallel processing
 
     Returns:
-        Processed TurnWindow with embeddings and drift score
+        List of processed TurnWindow objects
     """
     loop = asyncio.get_event_loop()
 
-    # Get embeddings for all turns in parallel
-    async def get_embedding(text: str) -> np.ndarray:
-        return await loop.run_in_executor(executor, ollama.get_embeddings, text)
-
-    # Process all embeddings in parallel
-    embedding_tasks = [get_embedding(turn) for turn in window.turns]
-    window.embeddings = await asyncio.gather(*embedding_tasks)
-
-    # Calculate pairwise similarities
-    similarities = []
-    for i in range(len(window.embeddings) - 1):
-        for j in range(i + 1, len(window.embeddings)):
-            sim = cosine_similarity([window.embeddings[i]], [window.embeddings[j]])[0][
-                0
-            ]
-            similarities.append(sim)
-
-    # Calculate window metrics
-    window.window_similarity = np.mean(similarities)
-    # Convert similarity to drift score (1 - similarity, normalized to [0, 1])
-    window.drift_score = 1 - window.window_similarity
-
-    return window
+    # Flatten all turns for batch processing
+    all_turns = [turn for window in windows for turn in window.turns]
+    
+    # Get embeddings for all turns in one batch
+    async def get_batch_embeddings(texts: List[str]) -> np.ndarray:
+        # Wrap encode call with kwargs in a lambda
+        return await loop.run_in_executor(
+            executor,
+            lambda: model.encode(texts, show_progress_bar=False)
+        )
+    
+    all_embeddings = await get_batch_embeddings(all_turns)
+    
+    # Distribute embeddings back to windows
+    window_size = len(windows[0].turns)
+    for i, window in enumerate(windows):
+        start_idx = i * window_size
+        window.embeddings = list(all_embeddings[start_idx:start_idx + window_size])
+        
+        # Calculate similarities efficiently using vectorized operations
+        embeddings_array = np.stack(window.embeddings)
+        similarities = cosine_similarity(embeddings_array)
+        
+        # Get upper triangle indices for unique pairs
+        upper_tri_idx = np.triu_indices(len(window.embeddings), k=1)
+        similarities = similarities[upper_tri_idx]
+        
+        # Calculate window metrics
+        window.window_similarity = np.mean(similarities)
+        window.drift_score = 1 - window.window_similarity
+    
+    return windows
 
 
 def prepare_windows(
@@ -223,20 +252,24 @@ def prepare_windows(
             # Create sliding windows
             for i in range(len(turns) - window_size + 1):
                 window_turns = turns[i : i + window_size]
-                windows.append(TurnWindow(turns=window_turns))
+                windows.append(TurnWindow(
+                    turns=window_turns,
+                    original_texts=window_turns.copy()
+                ))
     return windows
 
 
 async def prepare_training_data_async(
     conversation_data: ConversationData,
     window_size: int = 8,
-    batch_size: int = 64,
-    max_workers: int = 8,
+    batch_size: int = 128,  # Increased batch size
+    max_workers: int = 16,  # Increased worker count
     use_cache: bool = True,
     force_recompute: bool = False,
     val_size: float = 0.15,
     test_size: float = 0.15,
     random_state: int = 42,
+    model_name: str = "BAAI/bge-small-en-v1.5",
 ) -> DataSplit:
     """Prepare training data asynchronously using sliding windows.
 
@@ -250,6 +283,7 @@ async def prepare_training_data_async(
         val_size: Fraction of data to use for validation
         test_size: Fraction of data to use for testing
         random_state: Random seed for reproducibility
+        model_name: Name of the sentence-transformer model to use
 
     Returns:
         DataSplit object containing train/val/test tensors
@@ -261,32 +295,40 @@ async def prepare_training_data_async(
         if cached_data is not None:
             return cached_data
 
-    # Initialize Ollama client
-    ollama = OllamaWrapper(embedding_model="bge-m3")
+    # Initialize sentence transformer model
+    print(f"Loading model: {model_name}")
+    model = SentenceTransformer(model_name)
+    model.to('cuda' if torch.cuda.is_available() else 'cpu')
 
     # Prepare all windows
     windows = prepare_windows(conversation_data, window_size)
     print(f"Created {len(windows)} windows of size {window_size}")
 
-    # Process in batches
+    # Process in larger batches
     processed_windows = []
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         for i in tqdm(range(0, len(windows), batch_size), desc="Processing batches"):
             batch = windows[i : i + batch_size]
-            processed_batch = await asyncio.gather(
-                *[process_window(window, ollama, executor) for window in batch]
-            )
+            processed_batch = await process_batch(batch, model, executor)
             processed_windows.extend(processed_batch)
 
-    # Convert to tensors
-    window_embeddings = torch.tensor(
-        np.array([np.concatenate(window.embeddings) for window in processed_windows]),
-        dtype=torch.float32,
-    )
-    drift_scores = torch.tensor(
-        np.array([window.drift_score for window in processed_windows]),
-        dtype=torch.float32,
-    )
+    # Preallocate arrays for better memory efficiency
+    n_windows = len(processed_windows)
+    embedding_dim = len(processed_windows[0].embeddings[0])
+    total_dim = embedding_dim * window_size
+    
+    # Create arrays directly
+    window_embeddings_array = np.empty((n_windows, total_dim), dtype=np.float32)
+    drift_scores_array = np.empty(n_windows, dtype=np.float32)
+    
+    # Fill arrays efficiently
+    for i, window in enumerate(processed_windows):
+        window_embeddings_array[i] = np.concatenate(window.embeddings)
+        drift_scores_array[i] = window.drift_score
+    
+    # Convert to tensors in one go
+    window_embeddings = torch.from_numpy(window_embeddings_array)
+    drift_scores = torch.from_numpy(drift_scores_array)
 
     # Split data
     data_split = split_data(
@@ -309,13 +351,14 @@ async def prepare_training_data_async(
 def prepare_training_data(
     conversation_data: ConversationData,
     window_size: int = 8,
-    batch_size: int = 16,
-    max_workers: int = 4,
+    batch_size: int = 128,  # Increased default batch size
+    max_workers: int = 16,  # Increased default worker count
     use_cache: bool = True,
     force_recompute: bool = False,
     val_size: float = 0.15,
     test_size: float = 0.15,
     random_state: int = 42,
+    model_name: str = "BAAI/bge-m3",
 ) -> DataSplit:
     """Synchronous wrapper for async data preparation.
 
@@ -329,6 +372,7 @@ def prepare_training_data(
         val_size: Fraction of data to use for validation
         test_size: Fraction of data to use for testing
         random_state: Random seed for reproducibility
+        model_name: Name of the sentence-transformer model to use
 
     Returns:
         DataSplit object containing train/val/test tensors
@@ -344,5 +388,6 @@ def prepare_training_data(
             val_size,
             test_size,
             random_state,
+            model_name,
         )
     )

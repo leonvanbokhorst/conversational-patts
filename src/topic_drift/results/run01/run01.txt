@@ -1,0 +1,44 @@
+Training Progress: 100%|█████████████████████████████████████████████████████████████████████████████████████████████| 20/20 [00:20<00:00,  1.03s/it, train_loss=0.0001, train_rmse=0.0089, val_loss=0.0002, val_rmse=0.0148]
+                                                                                                                                                                                                                             
+Training Results:
+Best Validation RMSE: 0.0112
+Best Validation R²: 0.8765
+
+Test Set Results:
+Loss: 0.0002
+RMSE: 0.0144
+R²: 0.7967
+
+Analyzing attention patterns on sample conversations...
+
+Analyzing conversations with different drift levels:
+
+Low Drift (score: 0.3474):
+Turn 1: You should! Oh, by the way, did you watch the documentary on Netflix about climate change?
+Turn 2: Not yet, but I've heard good things about it. Have you watched it?
+Turn 3: Yes, it's quite eye-opening. It made me want to start recycling more and maybe even go vegan.
+Turn 4: Wow, that's a big step! I've been trying to cut down on meat too. It's not easy though.
+Turn 5: Yeah, it takes time. Hey, have you seen the new movie posters for that superhero flick coming out ne...
+Turn 6: Oh, no, but I've heard it's going to be really good. Are you planning to watch it?
+Turn 7: Definitely! It looks like they've got some great action sequences this time around.
+Turn 8: Count me in then. We can make a night out of it.
+
+Medium Drift (score: 0.4654):
+Turn 1: Oh yeah, I saw it last weekend. It was pretty good, but not great.
+Turn 2: Really? I was hoping to catch a good film this weekend. What did you think about it?
+Turn 3: Well, the visuals were impressive and the acting was solid, but the plot seemed a bit lackluster. 
+Turn 4: That's too bad. I've heard mixed reviews about it. Maybe I'll wait for it to come out on streaming.
+Turn 5: Yeah, I think you might enjoy it more if you watch it at home where you can pause and rewatch certai...
+Turn 6: Good point. So, what else have you been up to lately?
+Turn 7: Not much, just trying to stay busy with work and taking care of some personal errands. How about you...
+Turn 8: Same here, just the usual routine. I've also been thinking about planning a short trip soon.
+
+High Drift (score: 0.5593):
+Turn 1: It was fantastic! The team really stepped up their game and managed to pull off a victory in the fin...
+Turn 2: Oh, that's too bad. I love watching sports, but sometimes life gets in the way. Maybe we could plan ...
+Turn 3: That's a great idea! I'd really enjoy that. Speaking of planning ahead, I'm thinking about trying ou...
+Turn 4: A few times back in college, but it's been a while. It's a fun way to stay active though! Are you an...
+Turn 5: Honestly, I haven't played since high school either, so we're pretty much on equal footing. But hey,...
+Turn 6: No, not yet. I've been hearing mixed reviews though. Is it worth checking out in your opinion?
+Turn 7: I think so! It's definitely different from anything else I've seen recently. The visuals were stunni...
+Turn 8: Oh, you're writing a book? That's awesome! What's it about?
