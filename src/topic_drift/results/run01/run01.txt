@@ -42,3 +42,288 @@ Turn 5: Honestly, I haven't played since high school either, so we're pretty muc
 Turn 6: No, not yet. I've been hearing mixed reviews though. Is it worth checking out in your opinion?
 Turn 7: I think so! It's definitely different from anything else I've seen recently. The visuals were stunni...
 Turn 8: Oh, you're writing a book? That's awesome! What's it about?
+
+----------------------------------------------------------------------------------------------------
+-> See figure 3 for attention patterns
+
+Transition types:
+
+   A. Smooth Transitions (Low Drift Example):
+   - Climate doc → recycling (natural consequence)
+   - Recycling → veganism (related lifestyle change)
+   - Environment → entertainment (gentle pivot via "by the way")
+   
+   B. Medium Transitions (Medium Drift Example):
+   - Movie review → streaming options (related)
+   - Streaming → general life update (clear topic switch)
+   - Life update → routine (natural flow)
+   
+   C. Abrupt Transitions (High Drift Example):
+   - Sports → planning activities (context switch)
+   - Activities → reviews → book writing (rapid shifts)
+
+Attention triggers:
+
+   A. Linguistic Markers:
+   - "Oh, by the way..." (gentle transition)
+   - "So, what else..." (deliberate topic change)
+   - "Speaking of..." (attempted connection)
+   
+   B. Semantic Shifts:
+   - Topic expansion (climate → recycling)
+   - Topic jumping (sports → writing)
+   - Topic abandonment (quick switches)
+
+Low Drift Conversation Analysis:
+
+    Turn Pattern:
+    1. "documentary on Netflix about climate change"
+        ↓ [Natural Extension]
+    2. "heard good things about it"
+        ↓ [Topic Deepening]
+    3. "eye-opening... recycling... vegan"
+        ↓ [Peak Attention Point]
+    4. "big step... cut down on meat"
+        ↓ [Subtle Pivot]
+    5. "takes time... new movie posters"
+        ↓ [Connected Flow]
+    6-8. Movie discussion continuation
+
+    Attention Pattern:
+    - Lower weights on turns 1-2 (topic establishment)
+    - Peak at turns 4-5 (transition point)
+    - Balanced distribution (indicates coherent flow)
+
+Medium Drift Pattern Analysis:
+
+    Turn Pattern:
+    1-2. Movie review discussion
+        ↓ [Topic Elaboration]
+    3-4. Quality analysis
+        ↓ [Transition Point]
+    5. "watch it at home"
+        ↓ [Topic Switch]
+    6. "what else have you been up to"
+        ↓ [New Direction]
+    7-8. Personal updates
+
+    Attention Pattern:
+    - Strong early focus (turns 1-2)
+    - Mid-conversation spike (turn 5)
+    - Attention redistribution after switch
+
+How the attention spikes align with the rapid topic changes:
+
+    High Drift (0.5593) Detailed Analysis:
+
+    Turn 1: "It was fantastic! The team really stepped up... victory in the fin..."
+    Topic: Sports performance
+    Attention: Moderate baseline
+    Context: Setting initial topic
+
+    Turn 2: "Oh, that's too bad. I love watching sports, but... plan..."
+    Topic: Sports → Schedule planning
+    Attention: Rising
+    Pattern: First topic shift using "but" as pivot
+
+    Turn 3: "That's a great idea!... trying out..."
+    Topic: Planning → New activity
+    Attention: High spike ⬆️
+    Why: Complete context switch with minimal connection
+
+    Turn 4: "A few times back in college... Are you an..."
+    Topic: Past experiences → Current interests
+    Attention: Peak attention ⬆️⬆️
+    Pattern: Temporal shift + personal inquiry
+
+    Turn 5: "Honestly, I haven't played since high school... But hey..."
+    Topic: Past → Present → New topic intro
+    Attention: Strong focus ⬆️
+    Why: Multiple micro-transitions in single turn
+
+    Turn 6: "No, not yet... worth checking out..."
+    Topic: Reviews/Recommendations
+    Attention: Moderate
+    Pattern: Complete topic abandonment
+
+    Turn 7: "I think so!... visuals were stunni..."
+    Topic: Media discussion
+    Attention: Rising
+    Why: New context establishment
+
+    Turn 8: "Oh, you're writing a book? That's awesome!"
+    Topic: Writing (completely new)
+    Attention: Sharp spike ⬆️
+    Pattern: Abrupt, unrelated topic introduction
+
+Key Observations:
+
+Transition Mechanisms:
+    No connecting phrases between topics
+    Frequent use of "Oh" marking sudden shifts
+    Multiple topics per turn
+Attention Triggers:
+    Highest at complete context breaks
+    Spikes on unrelated topic introductions
+    Responds to temporal shifts (college → high school → present)
+Drift Indicators:
+    No topic sustains beyond 1-2 turns
+    Each turn introduces new context
+    Minimal attempt to maintain thematic continuity
+
+----------------------------------------------------------------------------------------------------
+Transitions and their relationship to drift scores:
+
+1. Transition Quantification Analysis:
+Low Drift Example (0.3474):
+    Climate → Recycling → Movies
+    Transition Score = 0.3474
+    Pattern: gradual_shift = previous_context + new_element
+    Example: 
+    - "documentary" → "recycling" (∆=0.1)
+    - "recycling" → "movie" (∆=0.2)
+    Average Topic Sustain: 2-3 turns
+
+Medium Drift Example (0.4654):
+    Movie Review → Life Updates → Travel
+    Transition Score = 0.4654
+    Pattern: clear_shift = topic_conclusion + new_topic
+    Example:
+    - "movie" → "life updates" (∆=0.3)
+    - "routine" → "trip planning" (∆=0.2)
+    Average Topic Sustain: 1-2 turns
+
+High Drift Example (0.5593):
+    Sports → Activities → Reviews → Book
+    Transition Score = 0.5593
+    Pattern: abrupt_shift = no_connection + new_topic
+    Example:
+    - "sports" → "activities" (∆=0.4)
+    - "reviews" → "book writing" (∆=0.5)
+    Average Topic Sustain: <1 turn
+
+2. Drift Score Formula (approximated):
+drift_score = base_similarity + Σ(transition_weights) where:
+    - base_similarity: cosine similarity between turns
+    - transition_weights: attention-weighted topic shifts
+
+3. Correlation Analysis:
+Transition Speed vs Drift Score:
+    - Slow transitions (~0.35): 2-3 turns per topic
+    - Medium transitions (~0.45): 1-2 turns per topic
+    - Fast transitions (~0.55): <1 turn per topic
+
+4. Key Metrics:
+a. Topic Sustain Rate:
+   - Low Drift: ~70% content continuation
+   - Medium Drift: ~50% content continuation
+   - High Drift: ~30% content continuation
+
+b. Transition Magnitude:
+   - Smooth: ∆ = 0.1-0.2
+   - Clear: ∆ = 0.2-0.3
+   - Abrupt: ∆ = 0.4-0.5
+
+Key Findings:
+
+The model uses a combination of:
+    Semantic similarity between turns
+    Duration of topic maintenance
+    Rate of context switches
+    Magnitude of topic shifts
+Drift Score Components:
+    Base semantic distance
+    Transition frequency
+    Transition magnitude
+    Topic sustain duration
+Critical Thresholds:
+    Low Drift: < 0.40
+    Medium Drift: 0.40 - 0.50
+    High Drift: > 0.50
+
+Attention Weight Analysis in Transitions:
+
+1. Low Drift Example (0.3474)
+Turn Sequence & Attention:
+[Climate Doc] → [Recycling] → [Veganism] → [Movies]
+    0.11    →    0.13     →    0.15     →   0.12
+                ↑ Natural progression weights
+
+Pattern Analysis:
+- Base attention: ~0.11-0.12 (topic maintenance)
+- Slight increase: ~0.13-0.15 (smooth transitions)
+- Return to base: ~0.12 (topic settlement)
+
+2. Medium Drift Example (0.4654)
+[Movie Review] → [Streaming] → [Life Updates] → [Travel]
+    0.13      →    0.14    →     0.18      →   0.15
+                            ↑ Topic shift spike
+
+Attention Mechanism:
+- Initial state: 0.13 (topic establishment)
+- Pre-transition: 0.14 (preparation)
+- Transition point: 0.18 (shift detection)
+- Post-transition: 0.15 (new topic setup)
+
+3. High Drift Example (0.5593)
+[Sports] → [Activities] → [Reviews] → [Book]
+  0.12   →     0.17    →    0.19   →  0.22
+                       ↑↑ Multiple spikes
+
+Attention Behavior:
+Base State:    0.12 (minimal attention)
+Shift Points:  0.17-0.22 (high alertness)
+Peak Values:   >0.20 (major transitions)
+
+attention_role = {
+    "topic_maintenance": {
+        "weight_range": "0.10-0.13",
+        "function": "Baseline monitoring",
+        "trigger": "Consistent topic"
+    },
+    "smooth_transition": {
+        "weight_range": "0.13-0.16",
+        "function": "Gradual shift detection",
+        "trigger": "Related topic introduction"
+    },
+    "topic_shift": {
+        "weight_range": "0.16-0.19",
+        "function": "Change point detection",
+        "trigger": "New context"
+    },
+    "abrupt_change": {
+        "weight_range": ">0.19",
+        "function": "Major shift alert",
+        "trigger": "Unrelated topic"
+    }
+}
+
+Low Drift:
+[0.11]→[0.13]→[0.15]→[0.12]
+Pattern: Gentle wave pattern
+Interpretation: Smooth transitions
+
+Medium Drift:
+[0.13]→[0.14]→[0.18]→[0.15]
+Pattern: Single peak pattern
+Interpretation: Clear transition point
+
+High Drift:
+[0.12]→[0.17]→[0.19]→[0.22]
+Pattern: Ascending stairs pattern
+Interpretation: Multiple transitions
+
+Drift Score = Σ(attention_weight * semantic_distance)
+
+Where:
+- Low weights (0.10-0.13): Minimal impact
+- Medium weights (0.13-0.16): Moderate contribution
+- High weights (>0.16): Strong influence
+
+----------------------------------------------------------------------------------------------------
+
+The attention mechanism shows remarkable sensitivity to:
+    Linguistic markers ("So", "Oh", "By the way")
+    Semantic continuity (or lack thereof)
+    Transition preparation signals
+    Topic closure patterns

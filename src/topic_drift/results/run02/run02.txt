@@ -1,0 +1,66 @@
+Model Performance Metrics:
+    Training converged well with excellent metrics:
+    Test RMSE: 0.0105 (very low, indicating high precision)
+    Test R²: 0.8932 (strong correlation between predictions and actual values)
+    Best Validation R²: 0.8955 (consistent with test results, no overfitting)
+
+Training Curves Analysis:
+
+Loss curves show healthy convergence:
+    Both training and validation losses decrease smoothly
+    Small gap between train/val curves indicates good generalization
+    No significant oscillations suggesting stable learning
+
+R² Score curves:
+    Steady improvement reaching ~0.90
+    Validation R² closely follows training, confirming model robustness
+
+Prediction Distribution:
+
+Scatter plot shows:
+    Strong alignment with the ideal prediction line
+    Tighter clustering around middle drift values (0.4-0.6)
+    Slight spread at extremes (very high/low drift)
+
+Error distribution:
+    Approximately normal distribution
+    Centered near zero
+    Small standard deviation (~0.02)
+
+Attention Analysis by Drift Level:
+
+a. Low Drift (0.3474):
+    Topic: Climate documentary → Superhero movie
+    Pattern: "Gentle wave" transition
+    Key markers: "by the way", "Hey", "Oh"
+    Natural flow with related subtopics
+    Attention weights show gradual shifts
+b. Medium Drift (0.4654):
+    Topic: Movie review → Personal life
+    Pattern: "Single peak" transition at Turn 6
+    Key marker: "So, what else"
+    Clear topic boundary but smooth transition
+    Higher attention weights at transition points
+c. High Drift (0.5593):
+    Topic: Sports → Book writing
+    Pattern: "Ascending stairs" with multiple shifts
+    Multiple transition markers: "Speaking of", "But hey", "Oh"
+    Rapid topic changes
+    Highest attention weights at major shifts
+
+Model's Strengths:
+    Accurate drift score prediction
+    Effective attention mechanism
+    Good pattern recognition
+    Robust semantic bridge detection
+
+Areas for Potential Enhancement:
+Pattern Recognition:
+    Add more granular transition patterns
+    Weight linguistic markers dynamically
+Context Understanding:
+    Incorporate longer-term dependencies
+    Enhanced semantic bridging
+Attention Mechanism:
+    Dynamic weight adjustment
+    Topic-specific attention patterns

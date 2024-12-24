@@ -10,8 +10,21 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 
+# Linguistic markers for topic transitions
+TRANSITION_MARKERS = [
+    "so",           # Topic shift
+    "anyway",       # Topic shift
+    "by the way",   # Topic introduction
+    "speaking of",  # Related topic
+    "oh",          # Sudden realization/topic change
+    "well",        # Hesitation/transition
+    "actually",     # Contradiction/shift
+    "but",         # Contrast/shift
+    "however",      # Contrast/shift
+    "meanwhile",    # Parallel topic
+]
 
-class TopicDriftDetector(nn.Module):
+class EnhancedTopicDriftDetector(nn.Module):
     def __init__(self, input_dim: int, hidden_dim: int = 512):
         """Initialize the topic drift detection model.
 
@@ -22,55 +35,115 @@ class TopicDriftDetector(nn.Module):
         super().__init__()
         self.input_dim = input_dim
 
-        # Embedding processing layers
+        # Embedding processor
         self.embedding_processor = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
+            nn.LayerNorm(hidden_dim),
             nn.ReLU(),
-            nn.Dropout(0.2),
+            nn.Dropout(0.1)
+        )
+
+        # Multi-level attention
+        self.local_attention = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim // 2),
             nn.ReLU(),
-            nn.Dropout(0.2),
-        )
-
-        # Attention mechanism
-        self.attention = nn.Sequential(
             nn.Linear(hidden_dim // 2, 1),
-            nn.Softmax(dim=1),
+            nn.Softmax(dim=1)
+        )
+        
+        # Global context attention
+        self.global_attention = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim // 2),
+            nn.Tanh(),  # Better for long-range dependencies
+            nn.Linear(hidden_dim // 2, 1),
+            nn.Softmax(dim=1)
+        )
+        
+        # Linguistic marker detection
+        self.marker_detector = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim // 4),
+            nn.ReLU(),
+            nn.Linear(hidden_dim // 4, len(TRANSITION_MARKERS)),
+            nn.Sigmoid()
         )
 
-        # Final regression layers
+        # Pattern detection
+        self.pattern_detector = nn.LSTM(
+            input_size=hidden_dim,
+            hidden_size=hidden_dim // 2,
+            num_layers=2,
+            bidirectional=True
+        )
+
+        # Final regression layer
         self.regressor = nn.Sequential(
-            nn.Linear(hidden_dim // 2, hidden_dim // 4),
+            nn.Linear(hidden_dim, hidden_dim // 2),
             nn.ReLU(),
-            nn.Dropout(0.2),
-            nn.Linear(hidden_dim // 4, 1),
-            nn.Sigmoid(),  # Ensure output is between 0 and 1
+            nn.Dropout(0.1),
+            nn.Linear(hidden_dim // 2, 1),
+            nn.Sigmoid()
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Forward pass processing a window of embeddings.
-
-        Args:
-            x: Tensor of shape (batch_size, window_size * embedding_dim)
-
-        Returns:
-            Tensor of shape (batch_size, 1) with drift scores between 0 and 1
-        """
+        """Enhanced forward pass with multi-level attention."""
         batch_size = x.shape[0]
-        window_size = 8  # Fixed window size from data preparation
+        window_size = 8
         
-        # Reshape to (batch_size, window_size, embedding_dim)
+        # Reshape input
         x = x.view(batch_size, window_size, self.input_dim)
+        
+        # Process embeddings
+        processed = self.embedding_processor(x)
+        
+        # Multi-level attention
+        local_weights = self.local_attention(processed)
+        global_weights = self.global_attention(processed)
+        
+        # Combine attention weights based on pattern detection
+        pattern_scores = self.pattern_detector(processed)[0]
+        attention_weights = (
+            0.7 * local_weights +  # Local context
+            0.3 * global_weights   # Global context
+        ) * pattern_scores
+        
+        # Detect semantic bridges
+        transitions = self.semantic_bridge_detection(processed)
+        
+        # Final drift score computation
+        context = torch.sum(attention_weights * processed, dim=1)
+        base_score = self.regressor(context)
+        
+        # Adjust score based on transition patterns
+        final_score = base_score * (1 + transitions.mean(dim=1, keepdim=True))
+        
+        return torch.clamp(final_score, 0, 1)
 
-        # Process each embedding
-        processed = self.embedding_processor(x)  # Shape: (batch_size, window_size, hidden_dim//2)
-
-        # Apply attention
-        attention_weights = self.attention(processed)  # Shape: (batch_size, window_size, 1)
-        context = torch.sum(attention_weights * processed, dim=1)  # Shape: (batch_size, hidden_dim//2)
-
-        # Final regression
-        return self.regressor(context)
+    def semantic_bridge_detection(self, embeddings: torch.Tensor) -> torch.Tensor:
+        """Detect semantic bridges between turns."""
+        batch_size, seq_len, _ = embeddings.shape
+        
+        # Pairwise semantic similarity
+        similarities = torch.bmm(
+            embeddings, embeddings.transpose(1, 2)
+        )
+        
+        # Detect transition patterns
+        transitions = torch.zeros(batch_size, seq_len - 1, device=embeddings.device)
+        
+        # Create transition scores based on similarity thresholds
+        high_sim = (similarities[:, range(seq_len-1), range(1, seq_len)] > 0.8).float()
+        med_sim = (similarities[:, range(seq_len-1), range(1, seq_len)] > 0.6).float()
+        low_sim = (similarities[:, range(seq_len-1), range(1, seq_len)] > 0.4).float()
+        
+        # Apply transition scores using logical operations on tensors
+        transitions = (
+            0.11 * high_sim +  # topic_maintenance
+            0.15 * (med_sim * (1 - high_sim)) +  # smooth_transition
+            0.18 * (low_sim * (1 - med_sim)) +  # topic_shift
+            0.21 * (1 - low_sim)  # abrupt_change
+        )
+            
+        return transitions
 
 
 def train_model(
@@ -79,7 +152,7 @@ def train_model(
     epochs: int = 10,
     learning_rate: float = 0.001,
     early_stopping_patience: int = 3,
-) -> Tuple[TopicDriftDetector, Dict[str, list]]:
+) -> Tuple[EnhancedTopicDriftDetector, Dict[str, list]]:
     """Train the topic drift detection model.
 
     Args:
@@ -90,7 +163,7 @@ def train_model(
         early_stopping_patience: Number of epochs to wait for improvement
 
     Returns:
-        Tuple[TopicDriftDetector, dict]: Trained model and training metrics dictionary
+        Tuple[EnhancedTopicDriftDetector, dict]: Trained model and training metrics dictionary
     """
     # Set device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -111,7 +184,7 @@ def train_model(
 
     # Initialize model and training components
     embedding_dim = data.train_embeddings.shape[1] // 8  # Using window_size=8
-    model = TopicDriftDetector(embedding_dim).to(device)
+    model = EnhancedTopicDriftDetector(embedding_dim).to(device)
     criterion = nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
@@ -228,7 +301,7 @@ def train_model(
 
 
 def evaluate_model(
-    model: TopicDriftDetector,
+    model: EnhancedTopicDriftDetector,
     dataloader: DataLoader,
     device: torch.device,
 ) -> Dict[str, float]:
@@ -313,23 +386,14 @@ def plot_training_curves(metrics: Dict[str, List[float]], save_path: str = None)
 
 
 def visualize_attention(
-    model: TopicDriftDetector,
+    model: EnhancedTopicDriftDetector,
     sample_windows: torch.Tensor,
     sample_texts: List[List[str]],
     sample_scores: torch.Tensor,
     device: torch.device,
     save_path: str = None
 ):
-    """Visualize attention weights for sample windows.
-    
-    Args:
-        model: Trained TopicDriftDetector model
-        sample_windows: Tensor of window embeddings
-        sample_texts: List of conversation turns for each window
-        sample_scores: Actual drift scores for the windows
-        device: Device to run model on
-        save_path: Optional path to save the plot
-    """
+    """Visualize attention weights for sample windows."""
     model.eval()
     with torch.no_grad():
         batch_size = sample_windows.shape[0]
@@ -339,7 +403,19 @@ def visualize_attention(
         x = sample_windows.to(device)
         x = x.view(batch_size, window_size, model.input_dim)
         processed = model.embedding_processor(x)
-        attention_weights = model.attention(processed).cpu().numpy()
+        
+        # Get multi-level attention weights
+        local_weights = model.local_attention(processed)
+        global_weights = model.global_attention(processed)
+        pattern_scores = model.pattern_detector(processed)[0]
+        
+        # Combine attention weights
+        attention_weights = (
+            0.7 * local_weights +  # Local context
+            0.3 * global_weights   # Global context
+        ) * pattern_scores
+        
+        attention_weights = attention_weights.cpu().numpy()
         predictions = model(sample_windows.to(device)).squeeze().cpu().numpy()
         
         # Plot attention heatmaps
@@ -374,7 +450,7 @@ def visualize_attention(
 
 
 def plot_prediction_distribution(
-    model: TopicDriftDetector,
+    model: EnhancedTopicDriftDetector,
     test_loader: DataLoader,
     device: torch.device,
     save_path: str = None
@@ -382,7 +458,7 @@ def plot_prediction_distribution(
     """Plot distribution of predictions vs actual values.
     
     Args:
-        model: Trained TopicDriftDetector model
+        model: Trained EnhancedTopicDriftDetector model
         test_loader: DataLoader for test data
         device: Device to run model on
         save_path: Optional path to save the plot
@@ -422,6 +498,50 @@ def plot_prediction_distribution(
     if save_path:
         plt.savefig(save_path)
     plt.show()
+
+
+class TransitionPatternModule(nn.Module):
+    def __init__(self, hidden_dim: int):
+        super().__init__()
+        
+        # Pattern weights based on our analysis
+        self.pattern_weights = {
+            "gentle_wave": (0.10, 0.16),    # Low drift range
+            "single_peak": (0.13, 0.19),    # Medium drift range
+            "ascending_stairs": (0.16, 0.22) # High drift range
+        }
+        
+        # Pattern detection layers
+        self.pattern_detector = nn.LSTM(
+            input_size=hidden_dim,
+            hidden_size=hidden_dim // 2,
+            num_layers=2,
+            bidirectional=True
+        )
+
+
+def train_with_patterns(
+    model: EnhancedTopicDriftDetector,
+    data: DataSplit,
+    batch_size: int = 32,
+    epochs: int = 20,
+) -> None:
+    """Enhanced training with pattern recognition."""
+    # Additional loss components
+    pattern_loss = nn.MSELoss()  # For pattern detection
+    transition_loss = nn.L1Loss() # For transition smoothness
+    
+    # Combined loss function
+    def combined_loss(pred, target, patterns, transitions):
+        base_loss = nn.MSELoss()(pred, target)
+        pattern_penalty = pattern_loss(patterns, expected_patterns)
+        transition_smoothness = transition_loss(transitions, expected_transitions)
+        
+        return (
+            0.6 * base_loss +          # Base drift prediction
+            0.2 * pattern_penalty +     # Pattern adherence
+            0.2 * transition_smoothness # Transition smoothness
+        )
 
 
 def main():
